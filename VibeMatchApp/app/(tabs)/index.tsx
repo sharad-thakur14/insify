@@ -65,7 +65,7 @@ export default function App() {
   }));
 
   const redirectUri = Platform.OS === 'web'
-    ? window.location.origin
+    ? window.location.origin + '/'
     : makeRedirectUri({ scheme: 'vibematch' });
 
   const [request, response, promptAsync] = useAuthRequest(
