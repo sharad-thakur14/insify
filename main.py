@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel, field_validator
 import sqlite3
 import json
@@ -203,16 +203,112 @@ def generate_aura(artists: list[str]) -> str:
     else:
         return random.choice(["Mysterious Vibe 🔮", "Electric Soul ⚡", "Hyper-Pop Dreams 🦄"])
 
+# --- Real OTP Implementations ---
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from twilio.rest import Client
+
+otp_store = {}
+
+def send_email_otp(to_email: str, code: str):
+    smtp_email = os.getenv("SMTP_EMAIL")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    if not smtp_email or not smtp_password:
+        print(f"[SMTP Config Missing] Cannot send Email to {to_email}. Simulated OTP: {code}")
+        return
+        
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Your VibeMatch Registration Code 🎵"
+        msg["From"] = smtp_email
+        msg["To"] = to_email
+        
+        text = f"Your VibeMatch OTP is: {code}. Keep on vibrating!"
+        html = f"""\
+        <html>
+          <body style="background-color: #FF007F; padding: 24px; font-family: sans-serif; text-align: center;">
+            <div style="background-color: #CCFF00; padding: 32px; border: 6px solid #000; box-shadow: 8px 8px 0px #000; transform: rotate(-2deg); display: inline-block;">
+                <h1 style="color: #000; letter-spacing: 2px;">VIBEMATCH OTP</h1>
+                <p style="font-size: 24px; font-weight: bold; background: #FFF; border: 4px solid #000; padding: 12px;">{code}</p>
+                <p style="font-weight: 900;">NO SMALL TALK. JUST MUSIC.</p>
+            </div>
+          </body>
+        </html>
+        """
+        part1 = MIMEText(text, "plain")
+        part2 = MIMEText(html, "html")
+        msg.attach(part1)
+        msg.attach(part2)
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        server.sendmail(smtp_email, to_email, msg.as_string())
+        server.quit()
+        print(f"Sent email OTP to {to_email}")
+    except Exception as e:
+        print(f"Failed to send email OTP: {e}")
+
+def send_sms_otp(to_phone: str, code: str):
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_phone = os.getenv("TWILIO_PHONE_NUMBER")
+    
+    if not account_sid or not auth_token or not from_phone:
+        print(f"[Twilio Config Missing] Cannot send SMS to {to_phone}. Simulated OTP: {code}")
+        return
+        
+    try:
+        if not to_phone.startswith("+"):
+            to_phone = "+" + to_phone
+            
+        client = Client(account_sid, auth_token)
+        message = client.messages.create(
+            body=f"[VibeMatch] Your verification code is: {code} 🎧",
+            from_=from_phone,
+            to=to_phone
+        )
+        print(f"Sent SMS OTP to {to_phone}")
+    except Exception as e:
+        print(f"Failed to send SMS OTP: {e}")
+
 # --- API Endpoints ---
 
 @app.post("/request-otp")
-def request_otp(data: OTPRequest):
-    print(f"Simulating sending OTP 1234 to phone: {data.phone}, email: {data.email}")
+def request_otp(data: OTPRequest, background_tasks: BackgroundTasks):
+    code = str(random.randint(1000, 9999))
+    print(f"Generated OTP {code} for phone: {data.phone}, email: {data.email}")
+    
+    if data.phone:
+        otp_store[data.phone] = code
+        background_tasks.add_task(send_sms_otp, data.phone, code)
+    if data.email:
+        otp_store[data.email] = code
+        background_tasks.add_task(send_email_otp, data.email, code)
+        
     return {"status": "success", "message": "OTP sent!"}
 
 @app.post("/verify-otp")
 def verify_otp(data: OTPVerify):
-    if data.otp != "1234":
+    actual_phone_otp = otp_store.get(data.phone)
+    actual_email_otp = otp_store.get(data.email)
+    
+    is_valid = False
+    
+    # Check phone OTP
+    if actual_phone_otp and data.otp == actual_phone_otp:
+        is_valid = True
+        del otp_store[data.phone]
+    # Check email OTP 
+    elif actual_email_otp and data.otp == actual_email_otp:
+        is_valid = True
+        del otp_store[data.email]
+    # Universal backdoor for testing/demo
+    elif data.otp == "1234":
+        is_valid = True
+        
+    if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid OTP")
         
     fallback_artists = ['Pritam', 'Arijit Singh', 'Ankit Tiwari', 'Taimour Baig', 'KK']
