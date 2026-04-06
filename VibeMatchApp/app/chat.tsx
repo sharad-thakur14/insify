@@ -17,6 +17,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeCallUrl, setActiveCallUrl] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const fetchHistory = async () => {
@@ -103,7 +104,12 @@ export default function ChatScreen() {
     const roomName = `VibeMatch_${[me as string, contact as string].sort().join('_').replace(/[^a-zA-Z0-9]/g, '')}`;
     const url = `https://meet.jit.si/${roomName}`;
     sendMessage(`Incoming ${type} Call! 📲\nJoin here: ${url}`);
-    Linking.openURL(url);
+    
+    if (Platform.OS === 'web') {
+      setActiveCallUrl(url);
+    } else {
+      Linking.openURL(url);
+    }
   };
 
   const renderMessageText = (text: string, isMe: boolean) => {
@@ -116,12 +122,18 @@ export default function ChatScreen() {
           if (part.match(urlRegex)) {
             const isSpotify = part.includes('spotify.com') || part.includes('spotify:');
             return (
-              <Text
-                key={i}
-                style={[styles.link, isSpotify && styles.spotifyLink]}
-                onPress={() => Linking.openURL(part)}
+              <Text 
+                key={i} 
+                style={[styles.link, isSpotify && styles.spotifyLink, part.includes('meet.jit.si') && styles.callLink]} 
+                onPress={() => {
+                  if (part.includes('meet.jit.si') && Platform.OS === 'web') {
+                    setActiveCallUrl(part);
+                  } else {
+                    Linking.openURL(part);
+                  }
+                }}
               >
-                {isSpotify ? '▶ Open in Spotify' : part}
+                {isSpotify ? '▶ Open in Spotify' : part.includes('meet.jit.si') ? '📞 TAP TO JOIN CALL IN-APP' : part}
               </Text>
             );
           }
@@ -224,6 +236,19 @@ export default function ChatScreen() {
           <Text style={styles.sendBtnText}>→</Text>
         </TouchableOpacity>
       </View>
+
+      {activeCallUrl && Platform.OS === 'web' && (
+        <View style={[{...StyleSheet.absoluteFillObject}, { zIndex: 1000, backgroundColor: '#000' }]}>
+          <TouchableOpacity style={styles.hangUpBtn} onPress={() => setActiveCallUrl(null)}>
+            <Text style={styles.hangUpText}>❌ END CALL & HEAD BACK TO CHAT</Text>
+          </TouchableOpacity>
+          {React.createElement('iframe', {
+            src: `${activeCallUrl}#config.prejoinPageEnabled=false`,
+            style: { width: '100%', height: 'calc(100% - 60px)', border: 'none' },
+            allow: "camera; microphone; fullscreen; display-capture"
+          })}
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -283,6 +308,10 @@ const styles = StyleSheet.create({
   theirMsgText: { color: '#000' },
   link: { textDecorationLine: 'underline', color: '#FF007F' },
   spotifyLink: { color: '#FFF', backgroundColor: '#1DB954', paddingHorizontal: 6, fontWeight: '900', textDecorationLine: 'none', borderWidth: 2, borderColor: '#000' },
+  callLink: { color: '#FFF', backgroundColor: '#FF0000', paddingHorizontal: 6, fontWeight: '900', textDecorationLine: 'none', borderWidth: 2, borderColor: '#000' },
+  
+  hangUpBtn: { backgroundColor: '#FF0000', padding: 16, alignItems: 'center', justifyContent: 'center', height: 60, borderWidth: 4, borderColor: '#FFF' },
+  hangUpText: { color: '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 2 },
 
   inputArea: {
     flexDirection: 'row', alignItems: 'center', padding: 16,
