@@ -1,0 +1,22 @@
+# Ignore Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Ignore virtual environments
+.venv/
+
+# Ignore node and expo artifacts
+node_modules/
+VibeMatchApp/node_modules/
+VibeMatchApp/.expo/
+VibeMatchApp/web-build/
+
+# Ignore logs and environment
+*.log
+.env*
+
+# Ignore system folders
+.DS_Store
+.vscode/

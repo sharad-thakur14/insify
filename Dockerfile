@@ -1,38 +1,40 @@
-# Choose a base image with Node 20
+# Use official Node 20 base image
 FROM node:20-bullseye-slim
 
-# Install Python and system dependencies
+# Install Python 3 and pip
 RUN apt-get update \
-    && apt-get install -y python3 python3-pip curl \
+    && apt-get install -y python3 python3-pip \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && ln -sf /usr/bin/pip3 /usr/local/bin/pip
 
-# Setup user for compatibility
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+WORKDIR /home/user/app
 
-WORKDIR $HOME/app
-
-# Copy the requirements file and install Python packages
-COPY --chown=user requirements.txt .
+# Install Python backend dependencies first for caching
+COPY requirements.txt .
 RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
-# Copy local code to the container image
-COPY --chown=user . .
+# Install Expo app dependencies before copying the full repo
+WORKDIR /home/user/app/VibeMatchApp
+COPY VibeMatchApp/package.json VibeMatchApp/package-lock.json ./
+RUN npm ci
 
-# Build the Expo App
-WORKDIR $HOME/app/VibeMatchApp
-RUN npm install
-RUN npx expo export --platform web
+# Copy the rest of the repository and build the web app
+WORKDIR /home/user/app
+COPY . .
+WORKDIR /home/user/app/VibeMatchApp
+RUN npx expo export --platform web --output-dir ../web-build
 
-# Return to root application directory
-WORKDIR $HOME/app
+RUN useradd -m -u 1000 user \
+    && chown -R user:user /home/user/app
 
-# Hugging Face runs exactly on port 7860
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    EXPO_NO_DOCTOR=1
+
+WORKDIR /home/user/app
+
 EXPOSE 7860
 
-# Command to run the FastAPI server
 CMD uvicorn main:app --host 0.0.0.0 --port $PORT

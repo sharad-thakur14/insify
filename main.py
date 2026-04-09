@@ -4,6 +4,7 @@ import requests
 from typing import List, Optional, Dict
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect # <--- Update this
 import sqlite3
@@ -15,6 +16,11 @@ from otp_service import send_otp_to_both, verify_stored_otp
 load_dotenv()
 
 app = FastAPI(title="VibeMatch API")
+
+if os.path.isdir("VibeMatchApp/web-build"):
+    app.mount("/", StaticFiles(directory="VibeMatchApp/web-build", html=True), name="static")
+else:
+    print("WARNING: web-build directory is missing; static web UI will not be served.")
 
 # --- IMPROVED CHAT MANAGER ---
 class ConnectionManager:
