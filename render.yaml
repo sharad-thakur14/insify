@@ -1,9 +1,8 @@
 services:
   - type: web
     name: vibematch
-    env: python
-    buildCommand: "pip install -r requirements.txt && cd VibeMatchApp && npm install && npx expo export"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    env: docker
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.x
+      - key: PORT
+        value: 7860
