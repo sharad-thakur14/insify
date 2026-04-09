@@ -2,7 +2,7 @@ import os
 import sqlite3
 import requests
 from typing import List, Optional, Dict
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
@@ -16,6 +16,9 @@ from otp_service import send_otp_to_both, verify_stored_otp
 load_dotenv()
 
 app = FastAPI(title="VibeMatch API")
+
+# Create API router with prefix
+api_router = APIRouter(prefix="/api")
 
 if os.path.isdir("VibeMatchApp/web-build"):
     app.mount("/", StaticFiles(directory="VibeMatchApp/web-build", html=True), name="static")
@@ -94,7 +97,7 @@ class PlaylistData(BaseModel):
 
 # --- 1. OTP ENDPOINTS ---
 
-@app.post("/request-otp")
+@api_router.post("/request-otp")
 async def request_otp(data: OTPRequest):
     try:
         # Generates and sends OTP via your service (Twilio/Gmail)
@@ -104,7 +107,7 @@ async def request_otp(data: OTPRequest):
         print(f"OTP Error: {e}")
         return {"status": "error", "message": str(e)}
 
-@app.post("/verify-otp")
+@api_router.post("/verify-otp")
 async def verify_otp(data: VerifyRequest):
     is_valid = verify_stored_otp(data.email, data.otp)
     
@@ -124,7 +127,7 @@ async def verify_otp(data: VerifyRequest):
 
 
 
-@app.get("/matches")
+@api_router.get("/matches")
 async def get_matches(user_name: str):
     with sqlite3.connect('vibematch.db') as conn:
         conn.row_factory = sqlite3.Row
@@ -169,7 +172,7 @@ async def get_matches(user_name: str):
 
 # --- 2. THE SPOTIFY "DOOR" (Sync Playlists) ---
 
-@app.post("/update-playlists")
+@api_router.post("/update-playlists")
 async def update_playlists(data: PlaylistData):
     """
     This is the endpoint your frontend calls after the Spotify 
@@ -212,7 +215,7 @@ async def update_playlists(data: PlaylistData):
 
 
 # --- PRIVATE CHAT ENDPOINT ---
-@app.websocket("/ws/{user_name}")
+@api_router.websocket("/ws/{user_name}")
 async def websocket_endpoint(websocket: WebSocket, user_name: str):
     await manager.connect(websocket, user_name)
     try:
@@ -232,6 +235,9 @@ async def websocket_endpoint(websocket: WebSocket, user_name: str):
             
     except WebSocketDisconnect:
         manager.disconnect(user_name)
+
+# Include the API router
+app.include_router(api_router)
 
 if __name__ == "__main__":
     import uvicorn
