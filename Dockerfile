@@ -1,12 +1,12 @@
-# Use official Node 20 base image
-FROM node:20-bullseye-slim
+# Use official Python 3.11 base image
+FROM python:3.11-slim
 
-# Install Python 3 and pip
+# Install Node.js 20
 RUN apt-get update \
-    && apt-get install -y python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3 /usr/local/bin/python \
-    && ln -sf /usr/bin/pip3 /usr/local/bin/pip
+    && apt-get install -y curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/user/app
 
