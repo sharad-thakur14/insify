@@ -132,11 +132,11 @@ def send_otp_sms(phone: str, code: str) -> bool:
         return False
 
 
-def send_otp_to_both(email: str, phone: str) -> str:
-    """Generates one OTP and tries to send via both channels."""
-    code = generate_otp()
+def send_otp_to_both(email: str, phone: str, code: str) -> str: # ✅ 1. Add 'code' here
+    """Receives one OTP and tries to send via both channels."""
+    # code = generate_otp() # ❌ 2. COMMENT OUT OR DELETE THIS LINE
     
-    # Store it for both so the user can verify using either their email or phone
+    # Now it uses the code passed from main.py
     store_otp(email, code)
     store_otp(phone, code)
     

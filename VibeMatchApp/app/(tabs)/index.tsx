@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Image, ImageBackground, ActivityIndicator, Alert } from 'react-native';
 import axios from 'axios';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
@@ -32,21 +33,24 @@ export default function App() {
  const handleVerifyOtp = async () => {
   setLoading(true);
   try {
-    // We must send 'phone' now because main.py expects it!
     const res = await axios.post(`${API_BASE_URL}/verify-otp`, { 
       name, 
       email, 
       otp,
-      phone  // <--- ADD THIS LINE
+      phone 
     });
     
     if (res.data.status === 'success') {
-      setCurrentStep('matches');
+      // 🚀 DYNAMIC FIX: Pass the 'name' state as a parameter to the Explore screen
+      // This tells the app exactly who is logged in (e.g., Ronit or Priya)
+      router.push({
+          pathname: '/(tabs)/explore', 
+          params: { user: name } 
+      });
     }
-  } catch (e) {
-    // If you see 422 in terminal, it means 'phone' is still missing here
-    Alert.alert("Error", "Validation failed. Check if all fields are sent.");
-    console.log(e.response?.data); // This will show exactly what is missing
+  } catch (e: any) {
+    console.error("Verification failed:", e);
+    Alert.alert("Error", "Invalid OTP or connection issue.");
   } finally {
     setLoading(false);
   }
